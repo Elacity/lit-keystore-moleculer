@@ -1,0 +1,51 @@
+{
+  // Use IntelliSense to learn about possible Node.js debug attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug",
+      "program": "${workspaceRoot}/node_modules/moleculer/bin/moleculer-runner.mjs",
+      "sourceMaps": true,
+      "runtimeArgs": ["--loader", "ts-node/esm"],
+      "cwd": "${workspaceRoot}",
+      "args": ["services/**/*.service.ts", "--config", "moleculer.config.ts", "--hot"],
+      "env": {
+        "NAMESPACE": "arbitrum-sepolia",
+        "TRANSPORTER": "nats://localhost:4222",
+        "LOGLEVEL": "debug",
+        "NODE_ENV": "development"
+      }
+    },
+    {
+      "name": "debug on docker:20229",
+      "port": 20229,
+      "request": "attach",
+      "skipFiles": ["<node_internals>/**"],
+      "type": "node",
+      "protocol": "inspector",
+      "localRoot": "${workspaceRoot}",
+      "remoteRoot": "/app"
+    },
+    {
+      "name": "listen on local:9229",
+      "port": 9229,
+      "request": "attach",
+      "skipFiles": ["<node_internals>/**"],
+      "type": "node",
+      "protocol": "inspector"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Jest",
+      "program": "${workspaceRoot}/node_modules/jest-cli/bin/jest.js",
+      "args": ["--runInBand"],
+      "cwd": "${workspaceRoot}",
+      "runtimeArgs": ["--nolazy"]
+    }
+  ]
+}
