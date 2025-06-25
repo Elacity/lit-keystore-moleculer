@@ -2,7 +2,7 @@
 import type { ServiceSchema } from "moleculer";
 
 const HealthzService: ServiceSchema = {
-  name: "healthz",
+  name: "lit-healthz",
 
   /**
    * Health check service to monitor the health of the application.
@@ -39,6 +39,6 @@ const HealthzService: ServiceSchema = {
   stopped() {
     this.logger.info("Healthz service stopped");
   },
-}
+};
 
 export default HealthzService;
