@@ -6,7 +6,7 @@ import { cipher, createIdentity, decryptWithPrivateKey, encryptWithPublicKey, ha
 import type { Context, ServiceBroker } from "moleculer";
 import { Errors, Service } from "moleculer";
 import { v5 as fromString, v4 as uuid } from "uuid";
-import LitProtocolMixin from "../lib/lit.mixin.js";
+import LitProtocolMixin, { type KeystoreOptions } from "../lib/lit.mixin.js";
 import UtilsMixin from "../lib/utils.mixin.js";
 
 const EC = elliptic.ec;
@@ -38,6 +38,12 @@ interface KeyTransportOption {
   format: "hex" | "base64";
 }
 
+interface KeystoreCreateRequest {
+  hash: string;
+  useLegacy?: boolean;
+  options?: KeystoreOptions;
+}
+
 export default class KeystoreService extends Service {
   constructor(broker: ServiceBroker) {
     super(broker);
@@ -57,8 +63,8 @@ export default class KeystoreService extends Service {
           handler: async () => Promise.resolve(createIdentity()),
         },
         create: {
-          handler: async (ctx: Context<{ hash: string; useLegacy?: boolean }>): Promise<Record<string, any> & { store?: any }> => {
-            const { hash: hashValue, useLegacy = false } = ctx.params;
+          handler: async (ctx: Context<KeystoreCreateRequest>): Promise<Record<string, any> & { store?: any }> => {
+            const { hash: hashValue, useLegacy = false, options = { protocolVersion: "3.0"} } = ctx.params;
             // Generate keys pair, generate from hash will ensure unicity,
             // Given the hash is uniquely calculated
             let kid = uuid();
@@ -78,7 +84,7 @@ export default class KeystoreService extends Service {
                     ...(await this.encodeFor(privateKeys[0], null, kid, key)),
                   }
                 : {
-                    ...(await this.encryptWithLit(key)),
+                    ...(await this.encryptWithLit(key, options)),
                   }),
             };
 
