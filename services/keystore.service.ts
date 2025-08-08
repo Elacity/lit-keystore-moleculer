@@ -49,6 +49,7 @@ export default class KeystoreService extends Service {
     super(broker);
     this.parseServiceSchema({
       name: "keystore",
+      description: "Keystore service",
       settings: {
         authorizedProcessors: {},
       },
@@ -64,7 +65,8 @@ export default class KeystoreService extends Service {
         },
         create: {
           handler: async (ctx: Context<KeystoreCreateRequest>): Promise<Record<string, any> & { store?: any }> => {
-            const { hash: hashValue, useLegacy = false, options = { protocolVersion: "3.0"} } = ctx.params;
+            const { hash: hashValue, useLegacy = false, options = { protocolVersion: "3.0" } } = ctx.params;
+
             // Generate keys pair, generate from hash will ensure unicity,
             // Given the hash is uniquely calculated
             let kid = uuid();
@@ -84,7 +86,15 @@ export default class KeystoreService extends Service {
                     ...(await this.encodeFor(privateKeys[0], null, kid, key)),
                   }
                 : {
-                    ...(await this.encryptWithLit(key, options)),
+                    ...(await this.encryptWithLit(key, {
+                      ...options,
+                      parameters: {
+                        // kid: `0x${kid}`,
+                        // ...options?.parameters,
+                        kid: `0xd38f0d640a6e4bf58db5cdf4cd44edb6`,
+                        authority: "0x2Ba1151b5bc5B39500fF8d3b277ec6d217CB33eE",
+                      },
+                    })),
                   }),
             };
 

@@ -17,7 +17,8 @@
         "NAMESPACE": "arbitrum-sepolia",
         "TRANSPORTER": "nats://localhost:4222",
         "LOGLEVEL": "debug",
-        "NODE_ENV": "development"
+        "NODE_ENV": "development",
+        "LIT_NETWORK": "datil-test"
       }
     },
     {
