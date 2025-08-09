@@ -77,7 +77,6 @@ export default class KeystoreService extends Service {
 
             const response = {
               kid,
-              key,
               ...(useLegacy && privateKeys.length > 0
                 ? {
                     // in the future we should be able to choose among a list of privateKey
@@ -98,9 +97,9 @@ export default class KeystoreService extends Service {
                   }),
             };
 
-            await ctx.emit("keystore.created", { kid, keystore: response.raw });
+            await ctx.emit("keystore.created", { kid, data: response });
 
-            return response;
+            return { ...response, key };
           },
         },
         unwrap: {
