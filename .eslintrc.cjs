@@ -26,6 +26,9 @@ module.exports = {
  ],
 
  rules: {
+  "import/prefer-default-export": "off",
+  "import/no-default-export": "off",
+
   // enforce curly brace usage
   curly: ["error", "all"],
 
@@ -166,15 +169,6 @@ module.exports = {
 
     // allow empty functions
     "@typescript-eslint/no-empty-function": "off",
-   },
-  },
-
-  {
-   files: ["**/index.ts"],
-   rules: {
-    // prefer named exports for certain file types
-    "import/prefer-default-export": "off",
-    "import/no-default-export": "error",
    },
   },
 

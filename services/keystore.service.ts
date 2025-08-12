@@ -3,11 +3,16 @@ import { LIT_NETWORK } from "@lit-protocol/constants";
 import type { LIT_NETWORKS_KEYS } from "@lit-protocol/types";
 import elliptic from "elliptic";
 import { cipher, createIdentity, decryptWithPrivateKey, encryptWithPublicKey, hash, recover, sign } from "eth-crypto";
-import type { Context, ServiceBroker } from "moleculer";
+import { ethers } from "ethers";
+import type { Context, ServiceBroker, ServiceSettingSchema } from "moleculer";
 import { Errors, Service } from "moleculer";
-import { v5 as fromString, v4 as uuid } from "uuid";
-import LitProtocolMixin, { type KeystoreOptions } from "../lib/lit.mixin.js";
-import UtilsMixin from "../lib/utils.mixin.js";
+import { v4 as uuid, v5 as uuidFromString } from "uuid";
+import { isSupportedChain } from "../lib/constants/index.js";
+import ECIESKeystoreManager from "../lib/encoders/ECIESKeystore.js";
+import LitKeystoreManager from "../lib/encoders/LitEncoder.js";
+import type { EncodingResult, ProtectionInput } from "../lib/encoders/types.js";
+import LitProtocolMixin, { type KeystoreOptions } from "../lib/mixins/lit.mixin.js";
+import UtilsMixin from "../lib/mixins/utils.mixin.js";
 
 const EC = elliptic.ec;
 const curve = new EC("secp256k1");
@@ -39,17 +44,23 @@ interface KeyTransportOption {
 }
 
 interface KeystoreCreateRequest {
-  hash: string;
-  useLegacy?: boolean;
+  salt: string;
+  privateKey?: string;
   options?: KeystoreOptions;
 }
 
-export default class KeystoreService extends Service {
+interface KeystoreCreateResponse {
+  kid: string;
+  key: string;
+  psshInputs: EncodingResult[];
+}
+
+export default class KeystoreService extends Service<ServiceSettingSchema> {
   constructor(broker: ServiceBroker) {
     super(broker);
     this.parseServiceSchema({
       name: "keystore",
-      description: "Keystore service",
+      description: "Keystore service, to create and deploy keypair",
       settings: {
         authorizedProcessors: {},
       },
@@ -63,72 +74,146 @@ export default class KeystoreService extends Service {
         createIdentity: {
           handler: async () => Promise.resolve(createIdentity()),
         },
-        create: {
-          handler: async (ctx: Context<KeystoreCreateRequest>): Promise<Record<string, any> & { store?: any }> => {
-            const { hash: hashValue, useLegacy = false, options = { protocolVersion: "3.0" } } = ctx.params;
+        generateLocalKey: {
+          params: {
+            hash: {
+              type: "string",
+              optional: true,
+              default: uuid(),
+            },
+          },
+          handler: async (ctx: Context<{ hash: string }>): Promise<string> =>
+            Promise.resolve(this.sanitizeUUID(uuidFromString(ctx.params.hash, uuid()))),
+        },
+        generateKeyPair: {
+          params: {
+            salt: {
+              type: "string",
+              optional: true,
+              default: uuid(),
+            },
+          },
+          /**
+           * This method is used to generate a key pair from a hash value.
+           * Generated key pair are both 128-bits long in compliance to [RFC4122](https://www.ietf.org/rfc/rfc4122.txt)
+           * as requirement to media track identification
+           *
+           * @param ctx<{hash: string}> - The hash value to generate the key pair from
+           * @returns {kid: string; key: string} - The key pair generated from the hash value
+           */
+          handler: async (ctx: Context<{ salt: string }>): Promise<{ kid: string; key: string }> => {
+            const { salt } = ctx.params;
 
             // Generate keys pair, generate from hash will ensure unicity,
             // Given the hash is uniquely calculated
             let kid = uuid();
-            const key = this.sanitizeUUID(fromString(hashValue, kid));
+            const key = this.sanitizeUUID(uuidFromString(salt, kid));
             kid = this.sanitizeUUID(kid);
 
-            const privateKeys = Object.values(this.settings.authorizedProcessors);
-
-            const response = {
-              kid,
-              ...(useLegacy && privateKeys.length > 0
-                ? {
-                    // in the future we should be able to choose among a list of privateKey
-                    // anyway, in the reverse process (decrypting) we already support another
-                    // processor as flow there is basically an address recovering + private key decrypting
-                    ...(await this.encodeFor(privateKeys[0], null, kid, key)),
-                  }
-                : {
-                    ...(await this.encryptWithLit(key, {
-                      ...options,
-                      parameters: {
-                        // kid: `0x${kid}`,
-                        // ...options?.parameters,
-                        kid: `0xd38f0d640a6e4bf58db5cdf4cd44edb6`,
-                        authority: "0x2Ba1151b5bc5B39500fF8d3b277ec6d217CB33eE",
-                      },
-                    })),
-                  }),
-            };
-
-            await ctx.emit("keystore.created", { kid, data: response });
-
-            return { ...response, key };
+            return Promise.resolve({ kid, key });
           },
         },
-        unwrap: {
-          // @todo: protect this endpoint with signature verification
-          handler: async (ctx: Context<UnwrapRequest>): Promise<PlaintextResponse> => {
-            const { data, kid } = ctx.params;
+        create: {
+          params: {
+            salt: {
+              type: "string",
+              optional: true,
+              default: uuid(),
+            },
+            privateKey: {
+              type: "string",
+              optional: true,
+            },
+            options: {
+              type: "object",
+              optional: true,
+              props: {
+                protocolParameters: {
+                  type: "object",
+                  optional: true,
+                  props: {
+                    authority: {
+                      type: "string",
+                    },
+                    ledger: {
+                      type: "string",
+                    },
+                    chainId: {
+                      type: "number",
+                    },
+                    rpc: {
+                      type: "string",
+                    },
+                    keystoreUrl: {
+                      type: "string",
+                      optional: true,
+                    },
+                  },
+                },
+              },
+              default: {
+                protocolParameters: {},
+              },
+            },
+          },
+          handler: async (ctx: Context<KeystoreCreateRequest>): Promise<KeystoreCreateResponse> => {
+            const { salt, privateKey: pk, options } = ctx.params;
+            const { kid, key } = await ctx.call<{ kid: string; key: string }, { salt: string }>(`${this.name}.generateKeyPair`, {
+              salt,
+            });
 
-            // considering format of the data which include 0x
-            const siglen = data.match(/^0x/) ? 132 : 130;
-            const sig = data.slice(0, siglen);
+            const { protocolParameters } = options as KeystoreOptions;
 
-            // recover signature
-            const processorAddr = recover(sig, hash.keccak256(kid)).toLowerCase();
-
-            if (!this.settings.authorizedProcessors[processorAddr]) {
-              throw new Errors.MoleculerError("unauthorized processor or invalid signature", 401, "UNAUTHORIZED_PROCESSOR");
-            }
-
-            const jsonKey = cipher.parse(data.slice(siglen));
-            const pk = this.settings.authorizedProcessors[processorAddr];
-
-            const key = await decryptWithPrivateKey(pk, jsonKey);
-
-            // decode the raw data
-            return {
+            const response: KeystoreCreateResponse = {
               kid,
               key,
-              guardian: processorAddr,
+              psshInputs: [],
             };
+
+            const privateKey = pk ?? (Object.values(this.settings.authorizedProcessors).at(0) as string) ?? null;
+
+            await Promise.all([
+              (async () => {
+                if (privateKey) {
+                  // is any private key is provided, we add the ECIES encoding
+                  // to the response, encoded with the private key itself
+                  const eciesEncoder = new ECIESKeystoreManager(this, {
+                    privateKey,
+                    kid,
+                    curve: "secp256k1" as unknown as elliptic.curves.PresetCurve,
+                    extraOptions: {
+                      format: "hex",
+                    },
+                  });
+                  response.psshInputs.push(
+                    await eciesEncoder.encode(new Uint8Array(Buffer.from(key, "hex")), protocolParameters as ProtectionInput),
+                  );
+                }
+              })(),
+              (async () => {
+                // lit protocol-based keystore is depending on
+                // EVM chain support
+                if (isSupportedChain(Number(protocolParameters?.chainId))) {
+                  const litEncoder = new LitKeystoreManager(this, {
+                    litClient: this.lit,
+                  });
+                  response.psshInputs.push(
+                    await litEncoder.encode(new Uint8Array(Buffer.from(key, "hex")), {
+                      kid: `0x${kid}`,
+                      ...(protocolParameters as ProtectionInput),
+                    }),
+                  );
+                }
+              })(),
+            ]);
+
+            if (response.psshInputs.length === 0) {
+              throw new Errors.MoleculerError("No encoding was performed", 400, "NO_ENCODING_PERFORMED");
+            }
+
+            await ctx.emit("keystore.created", { kid, data: response.psshInputs });
+
+            return { ...response };
           },
         },
         transfer: {
@@ -196,10 +281,10 @@ export default class KeystoreService extends Service {
           const hashedValue = hash.keccak256(kid);
           const sig = sign(privateKey, hashedValue);
 
-          const pubKey = remoteKey ?? curve.keyFromPrivate(privateKey.slice(2)).getPublic("hex").slice(2);
+          let pubKey = remoteKey ?? curve.keyFromPrivate(privateKey.slice(2)).getPublic("hex").slice(2);
 
           if (pubKey.length > 128) {
-            pubKey.slice(pubKey.length - 128, 128);
+            pubKey = pubKey.slice(pubKey.length - 128);
           }
 
           let formattedKey: string = key;
@@ -226,6 +311,43 @@ export default class KeystoreService extends Service {
             raw: sig + cipher.stringify(keystore),
           };
         },
+
+        unwrap: async (kid: string, data: string): Promise<PlaintextResponse> => {
+          // considering format of the data which include 0x
+          const siglen = data.match(/^0x/) ? 132 : 130;
+          const sig = data.slice(0, siglen);
+
+          // recover signature
+          const processorAddr = recover(sig, hash.keccak256(kid)).toLowerCase();
+
+          if (!this.settings.authorizedProcessors[processorAddr]) {
+            throw new Errors.MoleculerError("unauthorized processor or invalid signature", 401, "UNAUTHORIZED_PROCESSOR");
+          }
+
+          const jsonKey = cipher.parse(data.slice(siglen));
+          const pk = this.settings.authorizedProcessors[processorAddr];
+
+          const key = await decryptWithPrivateKey(pk, jsonKey);
+
+          // decode the raw data
+          return {
+            kid,
+            key,
+            guardian: processorAddr,
+          };
+        },
+      },
+
+      started() {
+        if (process.env.ETH_PK) {
+          // initialize wallet, prepare for ECIES encoding, unwrap and transfer
+          // used for legacy workflow (backwards compatibility)
+          const wallet = new ethers.Wallet(process.env.ETH_PK);
+          if (!this.settings) {
+            this.settings = {};
+          }
+          this.settings.authorizedProcessors[wallet.address.toLowerCase()] = wallet.privateKey;
+        }
       },
     });
   }

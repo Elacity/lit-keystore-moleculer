@@ -18,7 +18,8 @@
         "TRANSPORTER": "nats://localhost:4222",
         "LOGLEVEL": "debug",
         "NODE_ENV": "development",
-        "LIT_NETWORK": "datil-test"
+        "LIT_NETWORK": "datil-test",
+        "ETH_PK": "0x11aca1731a53c6ff5e75dddf1f7ce16612b342c69ccc89998a73f61cbaf90e9b"
       }
     },
     {
