@@ -85,7 +85,9 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
   }
 
   private buildProtectionData(cipher: EncryptResponse, accessControls?: AccessControlsTemplate) {
+    const { litClient } = this.parameters;
     return {
+      network: litClient.config.litNetwork,
       protectionType: ProtectionType.CencDRM_LitV1,
       variant: "eth.web3.clearkey",
       data: {
