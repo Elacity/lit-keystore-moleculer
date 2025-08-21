@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable import/prefer-default-export */
 import { ethers } from "ethers";
 
@@ -47,8 +48,12 @@ export class AuthorityGateway {
     );
   }
 
-  async registerIPWithKey(ledger: string, contentId: string, ipKey: string): Promise<ethers.ContractReceipt> {
+  async registerIPWithKey(ledger: string, contentId: string, ipKey: string): Promise<void> {
     const tx = await this.contract.registerIPWithKey(ledger, contentId, ipKey);
-    return tx.wait();
+    try {
+      await tx.wait();
+    } catch (error) {
+      console.warn(error);
+    }
   }
 }

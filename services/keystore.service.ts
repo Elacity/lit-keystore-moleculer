@@ -185,9 +185,13 @@ export default class KeystoreService extends Service<ServiceSettingSchema> {
                       format: "hex",
                     },
                   });
-                  response.psshInputs.push(
-                    await eciesEncoder.encode(new Uint8Array(Buffer.from(key, "hex")), protocolParameters as ProtectionInput),
-                  );
+                  try {
+                    response.psshInputs.push(
+                      await eciesEncoder.encode(new Uint8Array(Buffer.from(key, "hex")), protocolParameters as ProtectionInput),
+                    );
+                  } catch (e) {
+                    this.logger.warn("failed to push with ECIES method to blockchain", e);
+                  }
                 }
               })(),
               (async () => {
@@ -197,12 +201,16 @@ export default class KeystoreService extends Service<ServiceSettingSchema> {
                   const litEncoder = new LitKeystoreManager(this, {
                     litClient: this.lit,
                   });
-                  response.psshInputs.push(
-                    await litEncoder.encode(new Uint8Array(Buffer.from(key, "hex")), {
-                      kid: `0x${kid}`,
-                      ...(protocolParameters as ProtectionInput),
-                    }),
-                  );
+                  try {
+                    response.psshInputs.push(
+                      await litEncoder.encode(new Uint8Array(Buffer.from(key, "hex")), {
+                        kid: `0x${kid}`,
+                        ...(protocolParameters as ProtectionInput),
+                      }),
+                    );
+                  } catch (e) {
+                    this.logger.warn("failed to push to lit", e);
+                  }
                 }
               })(),
             ]);
