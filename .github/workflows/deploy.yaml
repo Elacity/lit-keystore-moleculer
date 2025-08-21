@@ -1,0 +1,27 @@
+name: Deploy to Cloud Artifact Registry
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCLOUD_SA_KEY }}'
+
+      - name: 'Setup Google Cloud CLI'
+        uses: 'google-github-actions/setup-gcloud@v2'
+        with:
+          version: '>= 527.0.0'
+
+      - name: 'Build and Push Docker Image'
+        run: |
+          docker build -f ci/images/Dockerfile -t europe-west1-docker.pkg.dev/${{ secrets.GCLOUD_PROJECT_ID }}/docker-repo/keystore-service:${{ github.sha }} .
+          docker push europe-west1-docker.pkg.dev/${{ secrets.GCLOUD_PROJECT_ID }}/docker-repo/keystore-service:${{ github.sha }}
