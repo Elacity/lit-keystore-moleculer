@@ -25,4 +25,4 @@ jobs:
         run: |
           gcloud auth configure-docker europe-west1-docker.pkg.dev
           docker buildx create --name multiarch-builder --use
-          docker buildx build --platform linux/amd64,linux/arm64 -f ci/images/Dockerfile -t europe-west1-docker.pkg.dev/${{ secrets.GCLOUD_PROJECT_ID }}/docker-repo/keystore-service:${{ github.sha }} --load --push .
+          docker buildx build --platform linux/amd64,linux/arm64 -f ci/images/Dockerfile -t europe-west1-docker.pkg.dev/${{ secrets.GCLOUD_PROJECT_ID }}/docker-repo/keystore-service:${{ github.sha }} --push .
