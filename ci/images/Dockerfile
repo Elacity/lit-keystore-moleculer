@@ -15,7 +15,14 @@ RUN npm ci --silent
 COPY . .
 
 ENV NODE_ENV=$NODE_ENV
+RUN npm run build \
+ && npm prune \
+ && chmod +x ./ci/entrypoint.sh
 
+COPY package.json dist/package.json
+
+EXPOSE 4000
 EXPOSE 9229
+ENV SERVICEDIR=dist/services
 
-ENTRYPOINT ["/app/ci/entrypoint.sh"]
+ENTRYPOINT ["sh", "-c", "./ci/entrypoint.sh"]
