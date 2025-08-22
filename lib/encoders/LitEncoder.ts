@@ -1,22 +1,24 @@
 /* eslint-disable @typescript-eslint/no-parameter-properties */
+import { encryptString } from "@lit-protocol/encryption";
 import type { LitNodeClient } from "@lit-protocol/lit-node-client";
-import type { AccessControlConditions, EncryptResponse, EvmContractConditions } from "@lit-protocol/types";
+import type { AccessControlConditions, EncryptResponse, EvmContractConditions, UnifiedAccessControlConditions } from "@lit-protocol/types";
 import type { Service } from "moleculer";
 import { KeySystemId, ProtectionType, supportedChains } from "../constants/index.js";
 import type { EncodingResult, ICEKEncoder, ProtectionInput } from "./types.js";
 
-declare type UnifiedAccessControls = AccessControlConditions | EvmContractConditions;
+declare type UnifiedAccessControls = AccessControlConditions | EvmContractConditions | UnifiedAccessControlConditions;
 
 interface LitKeystoreParameters {
   litClient: LitNodeClient;
 }
 
-type AccessControlsTemplate = Partial<Record<"evmContractConditions" | "accessControlConditions", UnifiedAccessControls>>;
+type AccessControlsTemplate = Partial<Record<"evmContractConditions" | "accessControlConditions" | "unifiedAccessControls", UnifiedAccessControls>>;
 
 export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput & { kid: string }> {
   private readonly accessControlsTemplate: AccessControlsTemplate = {
-    evmContractConditions: [
+    unifiedAccessControls: [
       {
+        conditionType: "evmContract",
         chain: ":chain",
         contractAddress: ":authority",
         functionName: "hasAccessByContentId",
@@ -62,10 +64,10 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
 
     try {
       const accessControls: AccessControlsTemplate = this.buildAccessControls(protection);
-      const { ciphertext, dataToEncryptHash } = await litClient.encrypt({
+      const { ciphertext, dataToEncryptHash } = await encryptString({
         ...accessControls,
-        dataToEncrypt: cek,
-      });
+        dataToEncrypt: Buffer.from(cek).toString("base64"),
+      }, litClient);
 
       return {
         keystore: ciphertext,
