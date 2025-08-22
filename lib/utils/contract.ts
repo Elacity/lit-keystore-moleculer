@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 /* eslint-disable import/prefer-default-export */
+import type { ContractReceipt} from "ethers";
 import { ethers } from "ethers";
 
 export class AuthorityGateway {
@@ -48,12 +49,8 @@ export class AuthorityGateway {
     );
   }
 
-  async registerIPWithKey(ledger: string, contentId: string, ipKey: string): Promise<void> {
+  async registerIPWithKey(ledger: string, contentId: string, ipKey: string): Promise<ContractReceipt> {
     const tx = await this.contract.registerIPWithKey(ledger, contentId, ipKey);
-    try {
-      await tx.wait();
-    } catch (error) {
-      console.warn(error);
-    }
+    return tx.wait();
   }
 }
