@@ -12,11 +12,11 @@ interface LitKeystoreParameters {
   litClient: LitNodeClient;
 }
 
-type AccessControlsTemplate = Partial<Record<"evmContractConditions" | "accessControlConditions" | "unifiedAccessControls", UnifiedAccessControls>>;
+type AccessControlsTemplate = Partial<Record<"evmContractConditions" | "accessControlConditions" | "unifiedAccessControlConditions", UnifiedAccessControls>>;
 
 export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput & { kid: string }> {
   private readonly accessControlsTemplate: AccessControlsTemplate = {
-    unifiedAccessControls: [
+    unifiedAccessControlConditions: [
       {
         conditionType: "evmContract",
         chain: ":chain",
