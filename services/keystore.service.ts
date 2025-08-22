@@ -248,10 +248,7 @@ export default class KeystoreService extends Service<ServiceSettingSchema> {
             const { kid, data, pubKey, options } = ctx.params;
 
             this.logger.info("Transfering keystore for read to", pubKey);
-            const { key, guardian } = await ctx.call<PlaintextResponse, { kid: string; data: string }>(`${this.name}.unwrap`, {
-              kid,
-              data,
-            });
+            const { key, guardian } = await this.unwrap(kid, data);
 
             return {
               kid,
