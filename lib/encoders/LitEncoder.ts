@@ -16,11 +16,12 @@ type AccessControlsTemplate = Partial<Record<"evmContractConditions" | "accessCo
 
 export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput & { kid: string }> {
   // The latest version of the Lit Action code in charge of CEK processing
-  private readonly actionIpfsId: string = "QmcXXz3RRsWW4fA99RH6vZwix5XH2CNKsdGC3ADBtzWxaW";
+  private readonly actionIpfsId: string = "QmZUPqKuvDQHE2Vnx8yFsMcu8MTN9B7rfJeFwVXBwfoJMm";
 
   private readonly accessControlsTemplate: AccessControlsTemplate = {
     unifiedAccessControlConditions: [
       {
+        conditionType: "evmBasic",
         contractAddress: "",
         standardContractType: "",
         chain: ":chain",
@@ -114,23 +115,22 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
         ...accessControls,
         authority: protection.authority,
         actionIpfsId: this.actionIpfsId,
+        chain: this.getChainName(Number(protection?.chainId)),
       },
     };
+  }
+
+  private getChainName(chainId: number): string {
+    return supportedChains[Number(chainId)];
   }
 
   private buildAccessControls(protection?: ProtectionInput): AccessControlsTemplate {
     const accessControls: AccessControlsTemplate = {};
 
-    const chainName = supportedChains[Number(protection?.chainId)];
-
-    if (!chainName) {
-      throw new Error(`cannot map requested chain ${protection?.chainId}`);
-    }
-
     Object.entries(this.accessControlsTemplate).forEach(([key, value]) => {
       accessControls[key as keyof AccessControlsTemplate] = this.replaceConditionsParameters(value, {
         ...protection,
-        chain: chainName,
+        chain: this.getChainName(Number(protection?.chainId)),
         authority: protection?.authority ?? "",
         actionIpfsId: this.actionIpfsId,
       });
