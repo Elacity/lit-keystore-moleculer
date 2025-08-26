@@ -15,8 +15,23 @@ interface LitKeystoreParameters {
 type AccessControlsTemplate = Partial<Record<"evmContractConditions" | "accessControlConditions" | "unifiedAccessControlConditions", UnifiedAccessControls>>;
 
 export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput & { kid: string }> {
+  // The latest version of the Lit Action code in charge of CEK processing
+  private readonly actionIpfsId: string = "QmcXXz3RRsWW4fA99RH6vZwix5XH2CNKsdGC3ADBtzWxaW";
+
   private readonly accessControlsTemplate: AccessControlsTemplate = {
     unifiedAccessControlConditions: [
+      {
+        contractAddress: "",
+        standardContractType: "",
+        chain: ":chain",
+        method: "",
+        parameters: [":currentActionIpfsId"],
+        returnValueTest: {
+          comparator: "=",
+          value: ":actionIpfsId",
+        },
+      },
+      { operator: "and" },      
       {
         conditionType: "evmContract",
         chain: ":chain",
@@ -73,6 +88,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
         keystore: ciphertext,
         systemId: KeySystemId.CencDRM_LitV1,
         protectionData: this.buildProtectionData(
+          protection,
           {
             ciphertext,
             dataToEncryptHash,
@@ -86,7 +102,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
     }
   }
 
-  private buildProtectionData(cipher: EncryptResponse, accessControls?: AccessControlsTemplate) {
+  private buildProtectionData(protection: ProtectionInput, cipher: EncryptResponse, accessControls?: AccessControlsTemplate) {
     const { litClient } = this.parameters;
     return {
       network: litClient.config.litNetwork,
@@ -96,6 +112,8 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
         ciphertext: cipher.ciphertext,
         hash: cipher.dataToEncryptHash,
         ...accessControls,
+        authority: protection.authority,
+        actionIpfsId: this.actionIpfsId,
       },
     };
   }
@@ -114,6 +132,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
         ...protection,
         chain: chainName,
         authority: protection?.authority ?? "",
+        actionIpfsId: this.actionIpfsId,
       });
     });
 
