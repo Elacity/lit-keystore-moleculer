@@ -2,6 +2,7 @@
 import { encryptString } from "@lit-protocol/encryption";
 import type { LitNodeClient } from "@lit-protocol/lit-node-client";
 import type { AccessControlConditions, EncryptResponse, EvmContractConditions, UnifiedAccessControlConditions } from "@lit-protocol/types";
+import { ethers } from "ethers";
 import type { Service } from "moleculer";
 import { KeySystemId, ProtectionType, supportedChains } from "../constants/index.js";
 import type { EncodingResult, ICEKEncoder, ProtectionInput } from "./types.js";
@@ -12,7 +13,25 @@ interface LitKeystoreParameters {
   litClient: LitNodeClient;
 }
 
-type AccessControlsTemplate = Partial<Record<"evmContractConditions" | "accessControlConditions" | "unifiedAccessControlConditions", UnifiedAccessControls>>;
+const ABI: ethers.ContractInterface = [
+  {
+    inputs: [],
+    name: "supportsLitProtocol",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "pure",
+    type: "function",
+  },
+];
+
+type AccessControlsTemplate = Partial<
+  Record<"evmContractConditions" | "accessControlConditions" | "unifiedAccessControlConditions", UnifiedAccessControls>
+>;
 
 export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput & { kid: string }> {
   // The latest version of the Lit Action code in charge of CEK processing
@@ -32,7 +51,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
           value: ":actionIpfsId",
         },
       },
-      { operator: "and" },      
+      { operator: "and" },
       {
         conditionType: "evmContract",
         chain: ":chain",
@@ -78,12 +97,21 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
       throw new Error("Protection parameters are required for Lit Protocol encoding");
     }
 
+    if (protection.authority && protection.rpc) {
+      if (!await this.checkLitProtocolSupport(protection.authority, protection.rpc)) {
+        throw new Error("[Lit] specified authority does not support the Lit Protocol, will be skipped");
+      }
+    }
+
     try {
       const accessControls: AccessControlsTemplate = this.buildAccessControls(protection);
-      const { ciphertext, dataToEncryptHash } = await encryptString({
-        ...accessControls,
-        dataToEncrypt: Buffer.from(cek).toString("base64"),
-      }, litClient);
+      const { ciphertext, dataToEncryptHash } = await encryptString(
+        {
+          ...accessControls,
+          dataToEncrypt: Buffer.from(cek).toString("base64"),
+        },
+        litClient,
+      );
 
       return {
         keystore: ciphertext,
@@ -215,6 +243,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
     }
 
     if (condition && typeof condition === "object") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result: any = {};
       for (const [key, value] of Object.entries(condition)) {
         result[key] = this.safeReplaceParameters(value, parameters);
@@ -223,5 +252,16 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
     }
 
     return condition;
+  }
+
+  private async checkLitProtocolSupport(authority: string, rpc: string): Promise<boolean> {
+    try {
+      const authorityGateway = new ethers.Contract(authority, ABI, new ethers.providers.JsonRpcProvider(rpc));
+      const supportsLitProtocol = await authorityGateway.supportsLitProtocol();
+      return supportsLitProtocol;
+    } catch (error) {
+      this.service.logger.warn(`Lit: failed to check lit protocol support on contract ${authority}`, error);
+      return false;
+    }
   }
 }

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /* eslint-disable import/prefer-default-export */
-import type { ContractReceipt} from "ethers";
+import type { ContractReceipt } from "ethers";
 import { ethers } from "ethers";
 
 export class AuthorityGateway {
