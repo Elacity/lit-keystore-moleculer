@@ -7,7 +7,6 @@ import { ethers } from "ethers";
 import type { Context, ServiceBroker, ServiceSettingSchema } from "moleculer";
 import { Errors, Service } from "moleculer";
 import { v4 as uuid, v5 as uuidFromString } from "uuid";
-import { isSupportedChain } from "../lib/constants/index.js";
 import ECIESKeystoreManager from "../lib/encoders/ECIESKeystore.js";
 import LitKeystoreManager from "../lib/encoders/LitEncoder.js";
 import type { EncodingResult, ProtectionInput } from "../lib/encoders/types.js";
@@ -195,22 +194,21 @@ export default class KeystoreService extends Service<ServiceSettingSchema> {
                 }
               })(),
               (async () => {
-                // lit protocol-based keystore is depending on
-                // EVM chain support
-                if (isSupportedChain(Number(protocolParameters?.chainId))) {
-                  const litEncoder = new LitKeystoreManager(this, {
-                    litClient: this.lit,
-                  });
-                  try {
-                    response.psshInputs.push(
-                      await litEncoder.encode(new Uint8Array(Buffer.from(key, "hex")), {
-                        kid: `0x${kid}`,
-                        ...(protocolParameters as ProtectionInput),
-                      }),
-                    );
-                  } catch (e) {
-                    this.logger.warn("failed to push to lit", e);
-                  }
+                // lit protocol-based keystore which use access control conditions
+                // based on rpc calls directly to the authority contract
+                // regardless of Lit protocol support of the chain (should work on ESC)
+                const litEncoder = new LitKeystoreManager(this, {
+                  litClient: this.lit,
+                });
+                try {
+                  response.psshInputs.push(
+                    await litEncoder.encode(new Uint8Array(Buffer.from(key, "hex")), {
+                      kid: `0x${kid}`,
+                      ...(protocolParameters as ProtectionInput),
+                    }),
+                  );
+                } catch (e) {
+                  this.logger.warn("failed to push to lit", e);
                 }
               })(),
             ]);

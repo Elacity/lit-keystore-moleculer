@@ -35,7 +35,7 @@ type AccessControlsTemplate = Partial<
 
 export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput & { kid: string }> {
   // The latest version of the Lit Action code in charge of CEK processing
-  private readonly actionIpfsId: string = "QmZUPqKuvDQHE2Vnx8yFsMcu8MTN9B7rfJeFwVXBwfoJMm";
+  private readonly actionIpfsId: string = "QmbBBDMuRA6DwG16R8DDaJgxdVp5acg5WDbAECfGByWpad";
 
   private readonly accessControlsTemplate: AccessControlsTemplate = {
     unifiedAccessControlConditions: [
@@ -53,37 +53,13 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
       },
       { operator: "and" },
       {
-        conditionType: "evmContract",
+        conditionType: "evmBasic",
+        contractAddress: "ipfs://QmVdU5MhsQg5mhZNNmp3qx3bbuGw6FPrUGws1yUycY9vsS",
+        standardContractType: "LitAction",
         chain: ":chain",
-        contractAddress: ":authority",
-        functionName: "hasAccessByContentId",
-        functionParams: [":userAddress", ":kid"],
-        functionAbi: {
-          inputs: [
-            {
-              name: "userAddress",
-              type: "address",
-            },
-            {
-              name: "contentId",
-              type: "bytes16",
-            },
-          ],
-          name: "hasAccessByContentId",
-          outputs: [
-            {
-              name: "hasAccess",
-              type: "bool",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        returnValueTest: {
-          key: "hasAccess",
-          comparator: "=",
-          value: "true",
-        },
+        method: "hasAccessByContentId",
+        parameters: [":userAddress", ":kid", ":authority", ":rpc"],
+        returnValueTest: { comparator: "=", value: "true" }
       },
     ],
   };
@@ -141,6 +117,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
         ciphertext: cipher.ciphertext,
         hash: cipher.dataToEncryptHash,
         ...accessControls,
+        rpc: protection.rpc,
         authority: protection.authority,
         actionIpfsId: this.actionIpfsId,
         chain: this.getChainName(Number(protection?.chainId)),
@@ -161,6 +138,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
         chain: this.getChainName(Number(protection?.chainId)),
         authority: protection?.authority ?? "",
         actionIpfsId: this.actionIpfsId,
+        rpc: String(protection?.rpc),
       });
     });
 
@@ -211,6 +189,11 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
         case "kid":
           if (!/^0x[a-fA-F0-9]{32}$/.test(stringValue)) {
             throw new Error(`Invalid KID format: ${stringValue}`);
+          }
+          break;
+        case "rpc":
+          if (!/^https?:\/\/.+$/.test(stringValue)) {
+            throw new Error(`Invalid RPC URL: ${stringValue}`);
           }
           break;
         default:
