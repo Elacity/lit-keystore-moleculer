@@ -120,13 +120,14 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
         rpc: protection.rpc,
         authority: protection.authority,
         actionIpfsId: this.actionIpfsId,
+        chainId: Number(protection?.chainId),
         chain: this.getChainName(Number(protection?.chainId)),
       },
     };
   }
 
-  private getChainName(chainId: number): string {
-    return supportedChains[Number(chainId)];
+  private getChainName(chainId: number, fallbackChain = "ethereum"): string {
+    return supportedChains[Number(chainId)] || fallbackChain;
   }
 
   private buildAccessControls(protection?: ProtectionInput): AccessControlsTemplate {
@@ -135,7 +136,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
     Object.entries(this.accessControlsTemplate).forEach(([key, value]) => {
       accessControls[key as keyof AccessControlsTemplate] = this.replaceConditionsParameters(value, {
         ...protection,
-        chain: this.getChainName(Number(protection?.chainId)),
+        chain: this.getChainName(Number(protection?.chainId), "ethereum"),
         authority: protection?.authority ?? "",
         actionIpfsId: this.actionIpfsId,
         rpc: String(protection?.rpc),
