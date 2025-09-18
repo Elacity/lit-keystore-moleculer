@@ -35,7 +35,7 @@ type AccessControlsTemplate = Partial<
 
 export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput & { kid: string }> {
   // The latest version of the Lit Action code in charge of CEK processing
-  private readonly actionIpfsId: string = "QmbBBDMuRA6DwG16R8DDaJgxdVp5acg5WDbAECfGByWpad";
+  private readonly actionIpfsId: string = "QmQgw91ZjsT1VkhxtibNV4zMet6vQTtQwL4FK5cRA8xHim";
 
   private readonly accessControlsTemplate: AccessControlsTemplate = {
     unifiedAccessControlConditions: [
@@ -54,7 +54,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
       { operator: "and" },
       {
         conditionType: "evmBasic",
-        contractAddress: "ipfs://QmVdU5MhsQg5mhZNNmp3qx3bbuGw6FPrUGws1yUycY9vsS",
+        contractAddress: "ipfs://QmRLWXfMHrwuRrcragtxpNT67ZakRnTAVRaykVeZ3T6AN1",
         standardContractType: "LitAction",
         chain: ":chain",
         method: "hasAccessByContentId",
