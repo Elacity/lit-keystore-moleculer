@@ -5,23 +5,35 @@ on:
     branches:
       - main
 
+# @todo:
+# - use short sha instead of long one
+# - automate deployment of the newly created image to the docker compose architecture
+# make use of `bin/update.py`
+# should execute somethign similar to
+# gcloud compute ssh root@${_GCLOUD_COMPUTER} \
+#  --project $PROJECT_ID \
+#  --zone europe-west1-b \
+#  --quiet \
+#  --force-key-file-overwrite \
+#  --command="/app/elacity/arch/bin/update.py keystore europe-west1-docker.pkg.dev/$PROJECT_ID/docker-repo/keystore-service:$SHORT_SHA"
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - id: 'auth'
-        uses: 'google-github-actions/auth@v2'
+      - id: "auth"
+        uses: "google-github-actions/auth@v2"
         with:
-          credentials_json: '${{ secrets.GCLOUD_SA_KEY }}'
+          credentials_json: "${{ secrets.GCLOUD_SA_KEY }}"
 
-      - name: 'Setup Google Cloud CLI'
-        uses: 'google-github-actions/setup-gcloud@v2'
+      - name: "Setup Google Cloud CLI"
+        uses: "google-github-actions/setup-gcloud@v2"
         with:
-          version: '>= 527.0.0'
+          version: ">= 527.0.0"
 
-      - name: 'Build and Push Docker Image'
+      - name: "Build and Push Docker Image"
         run: |
           gcloud auth configure-docker europe-west1-docker.pkg.dev
           docker buildx create --name multiarch-builder --use
