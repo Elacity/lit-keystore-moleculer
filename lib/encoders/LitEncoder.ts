@@ -54,7 +54,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
       { operator: "and" },
       {
         conditionType: "evmBasic",
-        contractAddress: "ipfs://QmRLWXfMHrwuRrcragtxpNT67ZakRnTAVRaykVeZ3T6AN1",
+        contractAddress: "ipfs://QmVdU5MhsQg5mhZNNmp3qx3bbuGw6FPrUGws1yUycY9vsS",
         standardContractType: "LitAction",
         chain: ":chain",
         method: "hasAccessByContentId",
