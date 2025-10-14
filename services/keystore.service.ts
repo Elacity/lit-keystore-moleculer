@@ -8,7 +8,7 @@ import type { Context, ServiceBroker, ServiceSettingSchema } from "moleculer";
 import { Errors, Service } from "moleculer";
 import { v4 as uuid, v5 as uuidFromString } from "uuid";
 import ECIESKeystoreManager from "../lib/encoders/ECIESKeystore.js";
-import LitKeystoreManager from "../lib/encoders/LitEncoder.js";
+import { LitEncoderEOAManager, LitEncoderSAManager } from "../lib/encoders/lit-protocol/index.js";
 import type { EncodingResult, ProtectionInput } from "../lib/encoders/types.js";
 import LitProtocolMixin, { type KeystoreOptions } from "../lib/mixins/lit.mixin.js";
 import UtilsMixin from "../lib/mixins/utils.mixin.js";
@@ -46,6 +46,7 @@ interface KeystoreCreateRequest {
   salt: string;
   privateKey?: string;
   options?: KeystoreOptions;
+  skipEcies?: boolean;
 }
 
 interface KeystoreCreateResponse {
@@ -156,7 +157,7 @@ export default class KeystoreService extends Service<ServiceSettingSchema> {
             },
           },
           handler: async (ctx: Context<KeystoreCreateRequest>): Promise<KeystoreCreateResponse> => {
-            const { salt, privateKey: pk, options } = ctx.params;
+            const { salt, privateKey: pk, options, skipEcies } = ctx.params;
             const { kid, key } = await ctx.call<{ kid: string; key: string }, { salt: string }>(`${this.name}.generateKeyPair`, {
               salt,
             });
@@ -173,7 +174,7 @@ export default class KeystoreService extends Service<ServiceSettingSchema> {
 
             await Promise.all([
               (async () => {
-                if (privateKey) {
+                if (privateKey && !skipEcies) {
                   // is any private key is provided, we add the ECIES encoding
                   // to the response, encoded with the private key itself
                   const eciesEncoder = new ECIESKeystoreManager(this, {
@@ -197,7 +198,25 @@ export default class KeystoreService extends Service<ServiceSettingSchema> {
                 // lit protocol-based keystore which use access control conditions
                 // based on rpc calls directly to the authority contract
                 // regardless of Lit protocol support of the chain (should work on ESC)
-                const litEncoder = new LitKeystoreManager(this, {
+                const litEncoder = new LitEncoderEOAManager(this, {
+                  litClient: this.lit,
+                });
+                try {
+                  response.psshInputs.push(
+                    await litEncoder.encode(new Uint8Array(Buffer.from(key, "hex")), {
+                      kid: `0x${kid}`,
+                      ...(protocolParameters as ProtectionInput),
+                    }),
+                  );
+                } catch (e) {
+                  this.logger.warn("failed to push to lit", e);
+                }
+              })(),
+              (async () => {
+                // lit protocol-based keystore which use access control conditions
+                // based on rpc calls directly to the authority contract
+                // regardless of Lit protocol support of the chain (works only in context of smart account)
+                const litEncoder = new LitEncoderSAManager(this, {
                   litClient: this.lit,
                 });
                 try {
