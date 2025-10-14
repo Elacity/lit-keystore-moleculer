@@ -23,8 +23,8 @@
       }
     },
     {
-      "name": "debug on docker:20229",
-      "port": 20229,
+      "name": "debug on docker:21229",
+      "port": 21229,
       "request": "attach",
       "skipFiles": ["<node_internals>/**"],
       "type": "node",

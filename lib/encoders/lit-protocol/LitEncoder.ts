@@ -4,8 +4,9 @@ import type { LitNodeClient } from "@lit-protocol/lit-node-client";
 import type { AccessControlConditions, EncryptResponse, EvmContractConditions, UnifiedAccessControlConditions } from "@lit-protocol/types";
 import { ethers } from "ethers";
 import type { Service } from "moleculer";
-import { KeySystemId, ProtectionType, supportedChains } from "../constants/index.js";
-import type { EncodingResult, ICEKEncoder, ProtectionInput } from "./types.js";
+import type { KeySystemId, ProtectionType} from "../../constants/index.js";
+import { supportedChains } from "../../constants/index.js";
+import type { EncodingResult, ICEKEncoder, ProtectionInput } from "../types.js";
 
 declare type UnifiedAccessControls = AccessControlConditions | EvmContractConditions | UnifiedAccessControlConditions;
 
@@ -33,40 +34,66 @@ type AccessControlsTemplate = Partial<
   Record<"evmContractConditions" | "accessControlConditions" | "unifiedAccessControlConditions", UnifiedAccessControls>
 >;
 
-export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput & { kid: string }> {
+interface LitEncoderFactoryParams {
+  keySystemId: KeySystemId,
+  protectionType: ProtectionType;
+  actionIpfsId: string;
+  accessCheckIpfsId: string;
+}
+
+// Enhanced ProtectionInput type for Lit encoder
+type LitProtectionInput = ProtectionInput & { kid: string };
+
+// Factory class constructor type
+type LitKeystoreManagerConstructor = new (service: Service, parameters: LitKeystoreParameters) => ICEKEncoder<LitProtectionInput>;
+
+class LitKeystoreManager implements ICEKEncoder<LitProtectionInput> {
   // The latest version of the Lit Action code in charge of CEK processing
-  private readonly actionIpfsId: string = "QmQgw91ZjsT1VkhxtibNV4zMet6vQTtQwL4FK5cRA8xHim";
+  private readonly actionIpfsId: string;
 
-  private readonly accessControlsTemplate: AccessControlsTemplate = {
-    unifiedAccessControlConditions: [
-      {
-        conditionType: "evmBasic",
-        contractAddress: "",
-        standardContractType: "",
-        chain: ":chain",
-        method: "",
-        parameters: [":currentActionIpfsId"],
-        returnValueTest: {
-          comparator: "=",
-          value: ":actionIpfsId",
+  private readonly protectionType: ProtectionType;
+
+  private readonly keyStstemId: KeySystemId;
+
+  private readonly accessControlsTemplate: AccessControlsTemplate;
+
+  constructor(
+    private readonly service: Service, 
+    protected readonly parameters: LitKeystoreParameters,
+    factoryParams: LitEncoderFactoryParams
+  ) {
+    this.actionIpfsId = factoryParams.actionIpfsId;
+    this.keyStstemId = factoryParams.keySystemId;
+    this.protectionType = factoryParams.protectionType;
+    this.accessControlsTemplate = {
+      unifiedAccessControlConditions: [
+        {
+          conditionType: "evmBasic",
+          contractAddress: "",
+          standardContractType: "",
+          chain: ":chain",
+          method: "",
+          parameters: [":currentActionIpfsId"],
+          returnValueTest: {
+            comparator: "=",
+            value: ":actionIpfsId",
+          },
         },
-      },
-      { operator: "and" },
-      {
-        conditionType: "evmBasic",
-        contractAddress: "ipfs://QmVdU5MhsQg5mhZNNmp3qx3bbuGw6FPrUGws1yUycY9vsS",
-        standardContractType: "LitAction",
-        chain: ":chain",
-        method: "hasAccessByContentId",
-        parameters: [":userAddress", ":kid", ":authority", ":rpc"],
-        returnValueTest: { comparator: "=", value: "true" }
-      },
-    ],
-  };
+        { operator: "and" },
+        {
+          conditionType: "evmBasic",
+          contractAddress: `ipfs://${factoryParams.accessCheckIpfsId}`,
+          standardContractType: "LitAction",
+          chain: ":chain",
+          method: "hasAccessByContentId",
+          parameters: [":userAddress", ":kid", ":authority", ":rpc"],
+          returnValueTest: { comparator: "=", value: "true" }
+        },
+      ],
+    };
+  }
 
-  constructor(private readonly service: Service, protected readonly parameters: LitKeystoreParameters) {}
-
-  async encode(cek: Uint8Array, protection?: ProtectionInput & { kid: string }): Promise<EncodingResult> {
+  async encode(cek: Uint8Array, protection?: LitProtectionInput): Promise<EncodingResult> {
     const { litClient } = this.parameters;
 
     if (!protection) {
@@ -91,7 +118,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
 
       return {
         keystore: ciphertext,
-        systemId: KeySystemId.CencDRM_LitV1,
+        systemId: this.keyStstemId,
         protectionData: this.buildProtectionData(
           protection,
           {
@@ -111,7 +138,7 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
     const { litClient } = this.parameters;
     return {
       network: litClient.config.litNetwork,
-      protectionType: ProtectionType.CencDRM_LitV1,
+      protectionType: this.protectionType,
       variant: "eth.web3.clearkey",
       data: {
         ciphertext: cipher.ciphertext,
@@ -249,3 +276,31 @@ export default class LitKeystoreManager implements ICEKEncoder<ProtectionInput &
     }
   }
 }
+
+/**
+ * Factory function that creates a LitKeystoreManager constructor with pre-configured parameters
+ * @param params Factory configuration parameters
+ * @returns Constructor function for LitKeystoreManager instances
+ */
+export function createLitEncoderFactory(params: LitEncoderFactoryParams): LitKeystoreManagerConstructor {
+  // Create a proper constructor function
+  function litKeystoreManagerFactory(service: Service, parameters: LitKeystoreParameters): ICEKEncoder<LitProtectionInput> {
+    return new LitKeystoreManager(service, parameters, params);
+  }
+  
+  // Cast to constructor type for proper usage with 'new'
+  return litKeystoreManagerFactory as unknown as LitKeystoreManagerConstructor;
+}
+
+/**
+ * Default factory function for backward compatibility
+ * @param params Factory configuration parameters
+ * @returns Constructor function for LitKeystoreManager instances
+ */
+export default function litEncoderFactory(params: LitEncoderFactoryParams): LitKeystoreManagerConstructor {
+  return createLitEncoderFactory(params);
+}
+
+// Export the base class for direct usage if needed
+export { LitKeystoreManager };
+export type { LitEncoderFactoryParams, LitProtectionInput, LitKeystoreManagerConstructor };
