@@ -20,8 +20,7 @@ export default class RelayerService extends Service<ServiceSettingSchema> {
           payerSecretKey: process.env.LIT_PAYER_SECRET_KEY as string,
         }) as any,
       ],
-      actions: {
-      },
+      actions: {},
 
       methods: {},
     });

@@ -10,8 +10,7 @@ export enum ProtectionType {
   // This DRM system use Lit Protocol to store license data
   // which is bound to the (KID, CEK) pair
   CencDRM_LitV1 = "cenc:lit-drm-v1",
-  
-  
+
   // This DRM system is intended to use Lit protocol as CEK storage
   // but in difference to Litv1, this one is dedicated to smart account
   // only, Lit acction used over ownership check enforce usage of smart

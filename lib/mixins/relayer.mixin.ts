@@ -5,7 +5,7 @@
 import { LitRelay } from "@lit-protocol/lit-auth-client";
 import { LitNodeClient } from "@lit-protocol/lit-node-client";
 import type { IRelay } from "@lit-protocol/types";
-import { type Context, Errors, type ServiceSchema} from "moleculer";
+import { type Context, Errors, type ServiceSchema } from "moleculer";
 import type { LitSettings } from "./lit.mixin.js";
 
 interface RelayerSettings extends LitSettings {
@@ -17,7 +17,7 @@ interface NetworkConfig {
   relayerBaseUrl: string;
   payer: string;
   delegationContract: string;
-};
+}
 
 declare type InternalRelayerSettings = RelayerSettings & Partial<NetworkConfig>;
 
@@ -25,12 +25,12 @@ const ecosystem: Record<string, NetworkConfig> = {
   datil: {
     relayerBaseUrl: "https://datil-relayer.getlit.dev",
     payer: "0x581D4bca99709c1E0cB6f07c9D05719818AA6e49", // sec. "L9LwH..."
-    delegationContract: "0xF19ea8634969730cB51BFEe2E2A5353062053C14"
+    delegationContract: "0xF19ea8634969730cB51BFEe2E2A5353062053C14",
   },
   "datil-test": {
     relayerBaseUrl: "https://datil-test-relayer.getlit.dev",
     payer: "0x16BA0779c9e099F9fb7396992Cb3722220EA7385", // sec. "xjDfx..."
-    delegationContract: "0xd7188e0348F1dA8c9b3d6e614844cbA22329B99E"
+    delegationContract: "0xd7188e0348F1dA8c9b3d6e614844cbA22329B99E",
   },
 };
 
@@ -42,7 +42,7 @@ export default (settings: RelayerSettings): ServiceSchema<InternalRelayerSetting
   description: "Proxy the Lit Relayer functionnalities for only internal use",
   settings: {
     ...settings,
-    ...ecosystem[settings.litNetwork]
+    ...ecosystem[settings.litNetwork],
   },
   lit: null as unknown as LitNodeClient,
   relayer: null as unknown as IRelay,
@@ -56,50 +56,50 @@ export default (settings: RelayerSettings): ServiceSchema<InternalRelayerSetting
             "api-key": this.settings.relayerApiKey,
           },
         });
-  
+
         return response.json();
       },
     },
     addUser: {
       params: {
         account: {
-          type: 'string',
+          type: "string",
         },
         preCheck: {
-          type: 'boolean',
-          optional: true
-        }
+          type: "boolean",
+          optional: true,
+        },
       },
-      async handler(ctx: Context<{account: string; preCheck?: boolean}>) {
+      async handler(ctx: Context<{ account: string; preCheck?: boolean }>) {
         return ctx.call(`${this.name}.addUsers`, {
-          accounts: [ctx.params.account]
-        })
+          accounts: [ctx.params.account],
+        });
       },
     },
     addUsers: {
       params: {
         accounts: {
-          type: 'array',
-          items: "string"
-        }
+          type: "array",
+          items: "string",
+        },
       },
-      async handler(ctx: Context<{accounts: string[]}>) {
+      async handler(ctx: Context<{ accounts: string[] }>) {
         const { accounts } = ctx.params;
 
         if (!accounts?.length) {
-          throw new Errors.MoleculerClientError('Empty payees', 400);
+          throw new Errors.MoleculerClientError("Empty payees", 400);
         }
-        
+
         const response = await fetch(this.resolveRelayerURL("/add-users"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "api-key": this.settings.relayerApiKey,
-            "payer-secret-key": this.settings.payerSecretKey
+            "payer-secret-key": this.settings.payerSecretKey,
           },
-          body: JSON.stringify(accounts)
+          body: JSON.stringify(accounts),
         });
-  
+
         return response.json();
       },
     },

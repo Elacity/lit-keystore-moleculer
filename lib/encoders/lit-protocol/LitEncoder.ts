@@ -4,7 +4,7 @@ import type { LitNodeClient } from "@lit-protocol/lit-node-client";
 import type { AccessControlConditions, EncryptResponse, EvmContractConditions, UnifiedAccessControlConditions } from "@lit-protocol/types";
 import { ethers } from "ethers";
 import type { Service } from "moleculer";
-import type { KeySystemId, ProtectionType} from "../../constants/index.js";
+import type { KeySystemId, ProtectionType } from "../../constants/index.js";
 import { supportedChains } from "../../constants/index.js";
 import type { EncodingResult, ICEKEncoder, ProtectionInput } from "../types.js";
 
@@ -35,7 +35,7 @@ type AccessControlsTemplate = Partial<
 >;
 
 interface LitEncoderFactoryParams {
-  keySystemId: KeySystemId,
+  keySystemId: KeySystemId;
   protectionType: ProtectionType;
   actionIpfsId: string;
   accessCheckIpfsId: string;
@@ -58,9 +58,9 @@ class LitKeystoreManager implements ICEKEncoder<LitProtectionInput> {
   private readonly accessControlsTemplate: AccessControlsTemplate;
 
   constructor(
-    private readonly service: Service, 
+    private readonly service: Service,
     protected readonly parameters: LitKeystoreParameters,
-    factoryParams: LitEncoderFactoryParams
+    factoryParams: LitEncoderFactoryParams,
   ) {
     this.actionIpfsId = factoryParams.actionIpfsId;
     this.keyStstemId = factoryParams.keySystemId;
@@ -87,7 +87,7 @@ class LitKeystoreManager implements ICEKEncoder<LitProtectionInput> {
           chain: ":chain",
           method: "hasAccessByContentId",
           parameters: [":userAddress", ":kid", ":authority", ":rpc"],
-          returnValueTest: { comparator: "=", value: "true" }
+          returnValueTest: { comparator: "=", value: "true" },
         },
       ],
     };
@@ -101,7 +101,7 @@ class LitKeystoreManager implements ICEKEncoder<LitProtectionInput> {
     }
 
     if (protection.authority && protection.rpc) {
-      if (!await this.checkLitProtocolSupport(protection.authority, protection.rpc)) {
+      if (!(await this.checkLitProtocolSupport(protection.authority, protection.rpc))) {
         throw new Error("[Lit] specified authority does not support the Lit Protocol, will be skipped");
       }
     }
@@ -287,7 +287,7 @@ export function createLitEncoderFactory(params: LitEncoderFactoryParams): LitKey
   function litKeystoreManagerFactory(service: Service, parameters: LitKeystoreParameters): ICEKEncoder<LitProtectionInput> {
     return new LitKeystoreManager(service, parameters, params);
   }
-  
+
   // Cast to constructor type for proper usage with 'new'
   return litKeystoreManagerFactory as unknown as LitKeystoreManagerConstructor;
 }
