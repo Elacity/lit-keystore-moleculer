@@ -1,6 +1,6 @@
 {
   "name": "@elacity-js/lit-keystore-moleculer",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Keystore service on top of Lit protocol (decentralized key management)",
   "type": "module",
   "scripts": {
