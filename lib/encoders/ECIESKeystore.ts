@@ -8,7 +8,7 @@ import { AuthorityGateway } from "../utils/contract.js";
 import type { EncodingResult, ICEKEncoder, KeyTransportOption, ProtectionInput } from "./types.js";
 
 /**
- * ECIESKeystoreParameters is a class that implements 
+ * ECIESKeystoreParameters is a class that implements
  * the ECIESKeystoreParameters interface.
  */
 interface ECIESKeystoreParameters {
@@ -77,7 +77,7 @@ export default class ECIESKeystoreManager implements ICEKEncoder<ProtectionInput
 
   /**
    * Builds the protection data for the ECIES keystore.
-   * 
+   *
    * @param publicKey - The public key of the ECIES keystore.
    * @param protection - The protection data to be included in the protection data.
    * @returns The protection data for the ECIES keystore.
@@ -99,7 +99,7 @@ export default class ECIESKeystoreManager implements ICEKEncoder<ProtectionInput
 
   /**
    * Pushes the keystore to the blockchain.
-   * 
+   *
    * @param kid - The KID of the keystore.
    * @param keystore - The keystore to be pushed to the blockchain.
    * @param protection - The protection data to be included in the protection data.
