@@ -2,11 +2,64 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable no-unreachable-loop */
 /* eslint-disable func-names */
+import { LIT_RPC } from "@lit-protocol/constants";
 import { LitRelay } from "@lit-protocol/lit-auth-client";
 import { LitNodeClient } from "@lit-protocol/lit-node-client";
 import type { IRelay } from "@lit-protocol/types";
+import * as ethers from "ethers";
 import { type Context, Errors, type ServiceSchema } from "moleculer";
 import type { LitSettings } from "./lit.mixin.js";
+
+const delegationContractAbi = [
+  {
+    name: "getPayers",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      {
+        name: "user",
+        type: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "payers",
+        type: "address[]",
+      },
+    ],
+  },
+  {
+    name: "getPayersAndRestrictions",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      {
+        name: "users",
+        type: "address[]",
+      },
+    ],
+    outputs: [
+      {
+        name: "payers",
+        type: "address[][]",
+      },
+      {
+        name: "restrictions",
+        type: "tuple[][]",
+        components: [
+          {
+            name: "requestsPerPeriod",
+            type: "uint256",
+          },
+          {
+            name: "periodSeconds",
+            type: "uint256",
+          },
+        ],
+      },
+    ],
+  },
+];
 
 interface RelayerSettings extends LitSettings {
   relayerApiKey: string;
@@ -46,6 +99,7 @@ export default (settings: RelayerSettings): ServiceSchema<InternalRelayerSetting
   },
   lit: null as unknown as LitNodeClient,
   relayer: null as unknown as IRelay,
+  delegationContract: null as unknown as ethers.Contract,
   actions: {
     registerNewPayer: {
       async handler() {
@@ -68,11 +122,30 @@ export default (settings: RelayerSettings): ServiceSchema<InternalRelayerSetting
         preCheck: {
           type: "boolean",
           optional: true,
+          default: true,
         },
       },
       async handler(ctx: Context<{ account: string; preCheck?: boolean }>) {
+        const { account, preCheck } = ctx.params;
+
+        if (preCheck) {
+          const {
+            payers: [payers],
+            restrictions: [restrictions],
+          } = await (this.delegationContract as ethers.Contract).getPayersAndRestrictions([account]);
+          this.logger.trace("track restrictions of the current address", { payers, restrictions, account });
+
+          if (payers?.length && restrictions?.length) {
+            return {
+              message: "already have payer(s)",
+              payers,
+              restrictions,
+            };
+          }
+        }
+
         return ctx.call(`${this.name}.addUsers`, {
-          accounts: [ctx.params.account],
+          accounts: [account],
         });
       },
     },
@@ -135,6 +208,13 @@ export default (settings: RelayerSettings): ServiceSchema<InternalRelayerSetting
       relayUrl: LitRelay.getRelayUrl(this.settings.litNetwork),
       relayApiKey: settings.relayerApiKey,
     });
+
+    // initiate the delegation contact contract
+    this.delegationContract = new ethers.Contract(
+      this.settings.delegationContract as string,
+      delegationContractAbi,
+      new ethers.providers.JsonRpcProvider(LIT_RPC.CHRONICLE_YELLOWSTONE),
+    );
   },
 
   async stopped() {
