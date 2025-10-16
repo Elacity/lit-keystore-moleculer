@@ -2,7 +2,6 @@ import { describe, expect, test } from '@jest/globals';
 import { KeySystemId } from '../../../lib/constants/systemId.js';
 import type { 
   EncodingResult,
-  ICEKEncoder,
   KeyTransportOption,
   ProtectionInput
 } from '../../../lib/encoders/types.js';

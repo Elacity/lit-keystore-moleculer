@@ -7,7 +7,7 @@ import type { ServiceSchema } from "moleculer";
 
 declare type UnifiedAccessControls = AccessControlConditions | EvmContractConditions;
 
-interface LitSettings {
+export interface LitSettings {
   litNetwork: LIT_NETWORKS_KEYS;
 }
 

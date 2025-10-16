@@ -1,3 +1,5 @@
+/* eslint-disable jest/no-restricted-matchers */
+/* eslint-disable @typescript-eslint/naming-convention */
 import { describe, expect, test } from '@jest/globals';
 import { supportedChains } from '../../../lib/constants/evm.js';
 import { KeySystemId, ProtectionType } from '../../../lib/constants/systemId.js';
