@@ -17,8 +17,12 @@ jobs:
       - name: "Generate Build Variables"
         id: build_vars
         run: |
-          echo "SHORT_SHA=${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
-          echo "IMAGE_NAME=europe-west1-docker.pkg.dev/${{ secrets.GCLOUD_PROJECT_ID }}/docker-repo/keystore-service:${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+          SHORT_SHA=${GITHUB_SHA:0:7}
+          IMAGE_NAME="europe-west1-docker.pkg.dev/${{ secrets.GCLOUD_PROJECT_ID }}/docker-repo/keystore-service:${SHORT_SHA}"
+          echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "Generated SHORT_SHA: ${SHORT_SHA}"
+          echo "Generated IMAGE_NAME: ${IMAGE_NAME}"
 
       - id: "auth"
         uses: "google-github-actions/auth@v2"
@@ -35,13 +39,20 @@ jobs:
           gcloud auth configure-docker europe-west1-docker.pkg.dev
           docker buildx create --name multiarch-builder --use
           docker buildx build --platform linux/amd64,linux/arm64 -f ci/images/Dockerfile -t ${{ steps.build_vars.outputs.IMAGE_NAME }} --push .
+          echo "Built and pushed image: ${{ steps.build_vars.outputs.IMAGE_NAME }}"
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        server: [www, develop-wl, base-wl]
+        include:
+          - server: www
+            path: /app/elacity/arch/bin/update.py
+          - server: develop-wl
+            path: /app/elacity/arch/bin/update.py
+          - server: base-wl
+            path: /app/elacity/base/bin/update.py
     steps:
       - name: "Authenticate to Google Cloud"
         id: "auth"
@@ -63,9 +74,10 @@ jobs:
       - name: "Deploy to ${{ matrix.server }} Server"
         run: |
           echo "Deploying to ${{ matrix.server }} with image: ${{ needs.build.outputs.image_name }}"
+          echo "Using script path: ${{ matrix.path }}"
           gcloud compute ssh root@${{ matrix.server }} \
             --project ${{ secrets.GCLOUD_PROJECT_ID }} \
             --zone europe-west1-b \
             --quiet \
             --force-key-file-overwrite \
-            --command="/app/elacity/arch/bin/update.py keystore ${{ needs.build.outputs.image_name }}"
+            --command="${{ matrix.path }} keystore ${{ needs.build.outputs.image_name }}"
