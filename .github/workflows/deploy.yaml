@@ -6,19 +6,36 @@ on:
       - main
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v2
+        with:
+          node-version: v22.15
+          cache: "npm"
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
   build:
     runs-on: ubuntu-latest
     outputs:
       short_sha: ${{ steps.build_vars.outputs.SHORT_SHA }}
       image_name: ${{ steps.build_vars.outputs.IMAGE_NAME }}
     steps:
-      - uses: actions/checkout@v4
-
       - name: "Generate Build Variables"
         id: build_vars
+        env:
+          GCLOUD_PROJECT_ID: ${{ secrets.GCLOUD_PROJECT_ID }}
         run: |
           SHORT_SHA=${GITHUB_SHA:0:7}
-          IMAGE_NAME="europe-west1-docker.pkg.dev/${{ secrets.GCLOUD_PROJECT_ID }}/docker-repo/keystore-service:${SHORT_SHA}"
+          IMAGE_NAME="europe-west1-docker.pkg.dev/${GCLOUD_PROJECT_ID}/docker-repo/keystore-service:${SHORT_SHA}"
           echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
           echo "Generated SHORT_SHA: ${SHORT_SHA}"
@@ -39,7 +56,6 @@ jobs:
           gcloud auth configure-docker europe-west1-docker.pkg.dev
           docker buildx create --name multiarch-builder --use
           docker buildx build --platform linux/amd64,linux/arm64 -f ci/images/Dockerfile -t ${{ steps.build_vars.outputs.IMAGE_NAME }} --push .
-          echo "Built and pushed image: ${{ steps.build_vars.outputs.IMAGE_NAME }}"
 
   deploy:
     needs: build
