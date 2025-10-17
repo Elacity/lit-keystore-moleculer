@@ -25,9 +25,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: test
-    outputs:
-      short_sha: ${{ steps.build_vars.outputs.SHORT_SHA }}
-      image_name: ${{ steps.build_vars.outputs.IMAGE_NAME }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,8 +37,6 @@ jobs:
           IMAGE_NAME="europe-west1-docker.pkg.dev/${GCLOUD_PROJECT_ID}/docker-repo/keystore-service:${SHORT_SHA}"
           echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
-          echo "Generated SHORT_SHA: ${SHORT_SHA}"
-          echo "Generated IMAGE_NAME: ${IMAGE_NAME}"
 
       - id: "auth"
         uses: "google-github-actions/auth@v2"
@@ -66,12 +61,24 @@ jobs:
       matrix:
         include:
           - server: www
-            path: /app/elacity/arch/bin/update.py
+            path: /app/elacity/arch
           - server: develop-wl
-            path: /app/elacity/arch/bin/update.py
+            path: /app/elacity/arch
           - server: base-wl
-            path: /app/elacity/base/bin/update.py
+            path: /app/elacity/base
     steps:
+      - name: "Generate Build Variables"
+        id: build_vars
+        env:
+          GCLOUD_PROJECT_ID: ${{ secrets.GCLOUD_PROJECT_ID }}
+        run: |
+          SHORT_SHA=${GITHUB_SHA:0:7}
+          IMAGE_NAME="europe-west1-docker.pkg.dev/${GCLOUD_PROJECT_ID}/docker-repo/keystore-service:${SHORT_SHA}"
+          echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "Generated SHORT_SHA: ${SHORT_SHA}"
+          echo "Generated IMAGE_NAME: ${IMAGE_NAME}"
+
       - name: "Authenticate to Google Cloud"
         id: "auth"
         uses: "google-github-actions/auth@v2"
@@ -91,11 +98,11 @@ jobs:
 
       - name: "Deploy to ${{ matrix.server }} Server"
         run: |
-          echo "Deploying to ${{ matrix.server }} with image: ${{ needs.build.outputs.image_name }}"
+          echo "Deploying to ${{ matrix.server }} with image: ${{ steps.build_vars.outputs.IMAGE_NAME }}"
           echo "Using script path: ${{ matrix.path }}"
           gcloud compute ssh root@${{ matrix.server }} \
             --project ${{ secrets.GCLOUD_PROJECT_ID }} \
             --zone europe-west1-b \
             --quiet \
             --force-key-file-overwrite \
-            --command="${{ matrix.path }} keystore ${{ needs.build.outputs.image_name }}"
+            --command="${{ matrix.path }}/bin/update.py keystore ${{ steps.build_vars.outputs.IMAGE_NAME }}"
