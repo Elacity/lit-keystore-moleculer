@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { LIT_NETWORK } from "@lit-protocol/constants";
-import type { LIT_NETWORKS_KEYS } from "@lit-protocol/types";
+import type { LIT_NETWORKS_KEYS, MintCapacityCreditsRes } from "@lit-protocol/types";
 import elliptic from "elliptic";
 import { cipher, createIdentity, decryptWithPrivateKey, encryptWithPublicKey, hash, recover, sign } from "eth-crypto";
 import { ethers } from "ethers";
@@ -272,6 +273,18 @@ export default class KeystoreService extends Service<ServiceSettingSchema> {
               ...(await this.encodeFor(this.settings.authorizedProcessors[guardian], pubKey, kid, key, options || {})),
             };
           },
+        },
+      },
+
+      events: {
+        "rli-cron.tick": async function RLICronTick(ctx: Context<{ timestamp: number; durationDays: number }>) {
+          const { durationDays } = ctx.params;
+          this.logger.info(`minting new RLI, relevant for next (${durationDays}) days...`);
+          const rli: MintCapacityCreditsRes = await this.mintRLI(durationDays ?? 30);
+
+          this.logger.info(`new RLI minted at txId=${rli.rliTxHash}, ID=${rli.capacityTokenIdStr}. Transferring to delegator...`);
+          await this.transferRLI(rli);
+          this.logger.info(`RLI #${rli.capacityTokenIdStr} transferred successfully!`);
         },
       },
 
